@@ -1,0 +1,62 @@
+# coding: utf-8
+from numpy import *
+import math
+import time
+import urllib
+import json
+
+def downloadjson(api):
+    time.sleep(1)
+    c = urllib.urlopen(api)
+    return json.loads(c.read())
+
+def iterator(api):
+    dict = downloadjson(api);
+    entries = dict["aflowlib_entries"]
+    return entries
+
+def returnchild(api, insertion):    # subapi 向中间插入字符串
+    pos = api.find("?format=json")
+    if pos != -1:
+        apichild = api[:pos] + insertion + "/" + api[pos:]
+    return apichild
+
+def downloadtofile(api):
+    #fwtitle = open("exampleaflow.txt", 'w')      # 写title
+    #fwtitle.write('compound\tcomposition\tdensity\t\tvolume_cell\t\t\tbond_length\t\t\tband_gap(eV)\ttype\t\t\tenergy_atom(eV)\tenthalpy_atom\teentropy_atom\tBravais\tlattice\t\t\tspace_group\t\t\tgeometry\n')
+    #fwtitle.close()
+    entries = iterator(api)
+    for i in range(19, len(entries)):
+        compound = entries[i]
+        apichild = returnchild(api, compound)
+        subentries = iterator(apichild)
+        for i in range(len(subentries)):
+            prototype = subentries[i]
+            if prototype.find(":LDAU") == -1 and prototype.find(".proto") == -1 and prototype.find("T0010") == -1:
+                apigrandchild = returnchild(apichild, prototype)
+                dict = downloadjson(apigrandchild)
+                compound = dict["compound"]
+                composition = dict["composition"]
+                density = dict["density"]
+                scintillation_attenuation_length = dict["scintillation_attenuation_length"]
+                volume_cell = dict["volume_cell"]
+                geometry = dict["geometry"]
+                if dict.has_key("Egap_fit") and dict.has_key("Egap_type"):
+                    gap = dict["Egap_fit"]
+                    type = dict["Egap_type"]
+                else: continue
+                bond_length = dict["nbondxx"]
+                energy_atom = dict["energy_atom"]
+                enthalpy_atom = dict["enthalpy_atom"]
+                eentropy_atom = dict["eentropy_atom"]
+                #enthalpy_formation_atom = dict["enthalpy_formation_atom"]
+                #entropic_temperature = dict["entropic_temperature"]
+                space_group = dict["sg"].split(",")[2]
+                Bravais = dict["Bravais_lattice_relax"]
+                lattice = dict["lattice_system_relax"]
+                catagory(compound, composition, density, volume_cell, bond_length, gap, type, energy_atom, enthalpy_atom, eentropy_atom, Bravais, lattice, space_group, geometry)
+
+def catagory(compound, composition, density, volume_cell, bond_length, gap, type, energy_atom, enthalpy_atom, eentropy_atom, Bravais, lattice, space_group, geometry):
+    fw = open('exampleaflow.txt', 'a')
+    fw.write('%s\t%s\t\t%-7s\t\t%-7s\t\t%-40s\t%-7.7s\t\t%-18s\t%-8s\t%-8s\t%s\t\t%s\t%-13s\t\t%s\t%s\n' % (compound, composition, density, volume_cell, bond_length, gap, type, energy_atom, enthalpy_atom, eentropy_atom, Bravais, lattice, space_group, geometry))
+    fw.close()
