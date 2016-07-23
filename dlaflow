@@ -59,4 +59,4 @@ def downloadtofile(api):
 def catagory(compound, composition, density, volume_cell, bond_length, gap, type, energy_atom, enthalpy_atom, eentropy_atom, Bravais, lattice, space_group, geometry):
     fw = open('exampleaflow.txt', 'a')
     fw.write('%s\t%s\t\t%-7s\t\t%-7s\t\t%-40s\t%-7.7s\t\t%-18s\t%-8s\t%-8s\t%s\t\t%s\t%-13s\t\t%s\t%s\n' % (compound, composition, density, volume_cell, bond_length, gap, type, energy_atom, enthalpy_atom, eentropy_atom, Bravais, lattice, space_group, geometry))
-    fw.close(
+    fw.close()
