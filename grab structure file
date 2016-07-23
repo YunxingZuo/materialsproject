@@ -1,0 +1,19 @@
+#coding:utf-8
+
+from numpy import *
+from math import *
+import urllib
+import json
+import os
+import shutil
+import time
+
+def downloadjson(mid):    # download the json file and get the dict
+    apiStem = "http://www.materialsproject.org/rest/v1/materials/%s/vasp/cif?API_KEY=**" % mid
+    print apiStem
+    c=urllib.urlopen(apiStem)
+    return json.loads(c.read())
+
+def fromciftoconfig(mid, pseduo = 'NCPP-SOFT'):
+    dict = downloadjson(mid)
+    if dict["valid_response"] == False: return -1    # 
