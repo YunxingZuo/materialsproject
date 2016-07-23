@@ -1,0 +1,223 @@
+# coding:utf-8
+from numpy import *
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
+import math
+import urllib
+import json
+
+def downloadjson(mid, apikey):      # 下载json文件，得到字典
+    apiStem = "https://www.materialsproject.org/rest/v1/materials/%s/vasp?API_KEY=%s" % (mid, apikey)
+    print apiStem
+    c=urllib.urlopen(apiStem)
+    return json.loads(c.read())
+
+def bandstructure(mid, apikey):
+    apiband = "https://www.materialsproject.org/rest/v1/materials/%s/vasp/bandstructure?API_KEY=%s" % (mid, apikey)
+    c=urllib.urlopen(apiband)
+    return json.loads(c.read())
+
+def downloadtofile(mtype, key):     # 下载数据到文本
+    fwtitle = open("example.txt", 'w')      # 写title
+    fwtitle.write('formula\t\tmaterials_id\tspacegroup\tcrystal_system\t\tformatenergy/atom(eV)\t\tbandgap(eV)\n')
+    fwtitle.close()
+    dict = downloadjson(mtype, key)
+    if dict["valid_response"] == False: return -1   # 如果response不存在，直接返回
+    else:
+        matdict = dict["response"]      # 顺着字典往下搜索
+        for i in range(len(matdict)):
+            middle = matdict[i]
+            mpid = middle["task_ids"][0]
+            en = middle["energy"]
+            formation = middle["formation_energy_per_atom"]
+            unitcell = middle["unit_cell_formula"]
+            formula = middle["full_formula"]
+            bandgap = middle["band_gap"]
+            spacegroup = middle["spacegroup"]["symbol"]
+            crystal_system = middle["spacegroup"]["crystal_system"]
+            if spacegroup == None or crystal_system == None: continue   # 如果没有晶体结构则舍弃这组数据
+            else:
+                catagory(formula, mpid, spacegroup, crystal_system, formation, bandgap)
+    print "formula:        " "%s\n" "materials id:   " "%s\n" "spacegroup:     " "%s\n" "crystal_system: " "%s\n" "formation_energy_per_atom:        " "%f\n" "bandgap:        " "%f" % (formula, mpid, spacegroup, crystal_system, formation, bandgap)
+
+def draw(mtype, key):
+    dict = bandstructure(mtype, key)
+    if dict["valid_response"] == False: return -1
+    else:
+        banddict = dict["response"][0]["bandstructure"]
+        branches = banddict["branches"]
+        kpoints = banddict["kpoints"]
+        spin = banddict["is_spin_polarized"]
+        bands = banddict["bands"]
+        fermi_energy = banddict["efermi"]
+        is_metal = banddict["is_metal"]
+        vbm = banddict["vbm"]
+        cbm = banddict["cbm"]
+        fig = plt.figure(dpi=100)
+        fig.clf()
+        ax = fig.add_subplot(111)
+        if spin == True:    # 是否有自旋
+            draw_band(kpoints, bands, fermi_energy, "1")
+            draw_band(kpoints, bands, fermi_energy, "-1")
+            draw_vbm(is_metal, vbm, kpoints, fermi_energy, "1")
+            draw_vbm(is_metal, vbm, kpoints, fermi_energy, "-1")
+            draw_cbm(is_metal, cbm, kpoints, fermi_energy, "1")
+            draw_cbm(is_metal, cbm, kpoints, fermi_energy, "-1")
+        else:
+            draw_band(kpoints, bands, fermi_energy, "1")
+            #draw_vbm(is_metal, vbm, kpoints, fermi_energy, "1")
+            #draw_cbm(is_metal, cbm, kpoints, fermi_energy, "1")
+    plt.ylim(-4, 5.3)
+    plt.yticks(np.linspace(-4, 4, 5, endpoint = True))
+    d, l = band_ticks(kpoints, branches)
+    plt.xticks(d, l, fontsize = 10)
+    for i in range(len(d)):
+        plt.axvline(d[i], color = "k")
+    plt.xlabel(r'$\mathrm{Wave\ Vector}$')
+    plt.ylabel(r'$\mathrm{E\ -\ E_f\ (eV)}$')
+    plt.show()
+
+def catagory(formula, mpid, spacegroup, crystal_system, formation, bandgap):   # 数据美观
+    fw = open('example.txt', 'a')
+    if len(formula) < 8:
+        if len(mpid) < 8:
+            if len(spacegroup) >= 8:
+                if len(crystal_system) < 6:
+                    fw.write('%s\t\t%s\t\t%s\t%s\t\t\t%f\t\t%f\n' % (formula, mpid, spacegroup, crystal_system, formation, bandgap))
+                else:
+                    fw.write('%s\t\t%s\t\t%s\t%s\t\t%f\t\t%f\n' % (formula, mpid, spacegroup, crystal_system, formation, bandgap))
+            else:
+                if len(crystal_system) < 6:
+                    fw.write('%s\t\t%s\t\t%s\t\t%s\t\t\t%f\t\t%f\n' % (formula, mpid, spacegroup, crystal_system, formation, bandgap))
+                else:
+                    fw.write('%s\t\t%s\t\t%s\t\t%s\t\t%f\t\t%f\n' % (formula, mpid, spacegroup, crystal_system, formation, bandgap))
+        else:
+            if len(spacegroup) >= 8:
+                if len(crystal_system) < 6:
+                    fw.write('%s\t\t%s\t%s\t%s\t\t\t%f\t\t%f\n' % (formula, mpid, spacegroup, crystal_system, formation, bandgap))
+                else:
+                    fw.write('%s\t\t%s\t%s\t%s\t\t%f\t\t%f\n' % (formula, mpid, spacegroup, crystal_system, formation, bandgap))
+            else:
+                if len(crystal_system) < 6:
+                    fw.write('%s\t\t%s\t%s\t\t%s\t\t\t%f\t\t%f\n' % (formula, mpid, spacegroup, crystal_system, formation, bandgap))
+                else:
+                    fw.write('%s\t\t%s\t%s\t\t%s\t\t%f\t\t%f\n' % (formula, mpid, spacegroup, crystal_system, formation, bandgap))
+    else :
+        if len(mpid) < 8:
+            if len(spacegroup) >= 8:
+                if len(crystal_system) < 6:
+                    fw.write('%s\t%s\t\t%s\t%s\t\t\t%f\t\t%f\n' % (formula, mpid, spacegroup, crystal_system, formation, bandgap))
+                else:
+                    fw.write('%s\t%s\t\t%s\t%s\t\t%f\t\t%f\n' % (formula, mpid, spacegroup, crystal_system, formation, bandgap))
+            else:
+                if len(crystal_system) < 6:
+                    fw.write('%s\t%s\t\t%s\t\t%s\t\t\t%f\t\t%f\n' % (formula, mpid, spacegroup, crystal_system, formation, bandgap))
+                else:
+                    fw.write('%s\t%s\t\t%s\t\t%s\t\t%f\t\t%f\n' % (formula, mpid, spacegroup, crystal_system, formation, bandgap))
+        else:
+            if len(spacegroup) >= 8:
+                if len(crystal_system) < 6:
+                    fw.write('%s\t%s\t%s\t%s\t\t\t%f\t\t%f\n' % (formula, mpid, spacegroup, crystal_system, formation, bandgap))
+                else:
+                    fw.write('%s\t%s\t%s\t%s\t\t%f\t\t%f\n' % (formula, mpid, spacegroup, crystal_system, formation, bandgap))
+            else:
+                if len(crystal_system) < 6:
+                    fw.write('%s\t%s\t%s\t\t%s\t\t\t%f\t\t%f\n' % (formula, mpid, spacegroup, crystal_system, formation, bandgap))
+                else:
+                    if formation != None:
+                        fw.write('%s\t%s\t%s\t\t%s\t\t%f\t\t%f\n' % (formula, mpid, spacegroup, crystal_system, formation, bandgap))
+    fw.close()
+
+def draw_band(kpoints, totalbands, efermi, spin = "1"):  # 全部减去费米能级
+    numkp = len(kpoints);
+    X = np.linspace(0, 1, numkp, endpoint = True)
+    bands = totalbands[spin]
+    for i in range(len(bands)):     # 对每一条band做图
+        if len(bands[i]) == numkp:
+            bands[i] = [k - efermi for k in bands[i]]
+            if spin == "1":
+                plt.plot(X, bands[i], color = "blue", linestyle = "-")
+            else:
+                plt.plot(X, bands[i], color = "red", linestyle = "--")
+        else: continue
+
+def draw_vbm(is_metal, vbm, kpoints, efermi, spin = "1"):
+    if is_metal:
+        return -1
+    energy = vbm["energy"] - efermi
+    prekpoint_index = vbm["kpoint_index"]
+    kpoint_index = []
+    if len(vbm["band_index"][spin]):
+        if len(prekpoint_index) <= 1:
+            kpoint_index = prekpoint_index
+        else:
+            for i in range(len(prekpoint_index) - 1):
+                if i == 0:
+                    kpoint_index.append(prekpoint_index[i])
+                else:
+                    if prekpoint_index[i] == prekpoint_index[i+1] - 1:
+                        kpoint_index.append(prekpoint_index[i])
+                    else: continue
+        for i in range(len(kpoint_index)):
+            x = kpoint_index[i] / float(len(kpoints) - 1)
+            plt.plot(x, energy, color='g', marker='o')
+
+def draw_cbm(is_metal, cbm, kpoints, efermi, spin = "1"):
+    if is_metal:
+        return -1
+    energy = cbm["energy"] - efermi
+    prekpoint_index = cbm["kpoint_index"]
+    kpoint_index = []
+    if len(cbm["band_index"][spin]):
+        if len(prekpoint_index) <= 1:
+            kpoint_index = prekpoint_index
+        else:
+            for i in range(len(prekpoint_index) - 1):
+                if i == 0:
+                    kpoint_index.append(prekpoint_index[i])
+                else:
+                    if prekpoint_index[i] == prekpoint_index[i+1] - 1:
+                        kpoint_index.append(prekpoint_index[i])
+                    else: continue
+        for i in range(len(kpoint_index)):
+            x = kpoint_index[i] / float(len(kpoints) - 1)
+            plt.plot(x, energy, color='r', marker='o')
+
+def band_ticks(kpoints, branches):  # 作出规整的x轴标记
+    preuniq_d = []
+    preuniq_l = []
+    uniq_d = []
+    uniq_l = []
+    label = ""
+    for i in range(len(branches)):
+        name = branches[i]["name"].split("-")
+        preuniq_l.append(name[0])
+        preuniq_l.append(name[1])
+        preuniq_d.append(branches[i]["start_index"])
+        preuniq_d.append(branches[i]["end_index"])
+    if len(preuniq_d) == len(preuniq_l):
+        length = len(preuniq_d)
+        for i in range(length - 1):
+            if i == 0:
+                uniq_d.append(preuniq_d[i])
+                uniq_l.append(preuniq_l[i])
+            else:
+                if preuniq_d[i] == preuniq_d[i+1] - 1:
+                    if preuniq_l[i] == preuniq_l[i+1]:
+                        label = preuniq_l[i]
+                    else:
+                        label = preuniq_l[i] + "|" + preuniq_l[i+1]
+                    uniq_d.append(preuniq_d[i])
+                    uniq_l.append(label)
+                else: continue
+        uniq_d.append(preuniq_d[length - 1])
+        uniq_l.append(preuniq_l[length - 1])
+    uniq_d = [i / float(len(kpoints) - 1) for i in uniq_d]
+    for i in range(len(uniq_l)):
+        label = uniq_l[i]
+        if label.startswith("\\") or label.find("_") != -1:
+            label = "$" + label + "$"
+            uniq_l[i] = label
+        else: continue
+    return uniq_d, uniq_l
